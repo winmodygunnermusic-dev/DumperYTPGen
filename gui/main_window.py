@@ -70,27 +70,48 @@ class MainWindow(tk.Tk):
 
     def _build_library_tab(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(1, weight=1)
-        ttk.Label(parent, text="Configure your media source folders, then scan to save metadata JSON.").grid(
-            row=0, column=0, columnspan=3, sticky="w", padx=10, pady=10
-        )
+        ttk.Label(
+            parent,
+            text=(
+                "Configure source folders and/or add individual material files. "
+                "Multi-file mode works for videos, images, sounds, music, memes, overlays, "
+                "transitions, and characters."
+            ),
+        ).grid(row=0, column=0, columnspan=6, sticky="w", padx=10, pady=10)
         self.folder_vars: dict[MediaKind, tk.StringVar] = {}
+        self.file_vars: dict[MediaKind, tk.StringVar] = {}
         for row, kind in enumerate(MediaKind, start=1):
             ttk.Label(parent, text=kind.value.replace("_", " ").title()).grid(
                 row=row, column=0, sticky="w", padx=10, pady=4
             )
-            var = tk.StringVar()
-            self.folder_vars[kind] = var
-            ttk.Entry(parent, textvariable=var).grid(row=row, column=1, sticky="ew", padx=6, pady=4)
-            ttk.Button(parent, text="Browse", command=lambda k=kind: self._choose_folder(k)).grid(
-                row=row, column=2, padx=10, pady=4
+            folder_var = tk.StringVar()
+            self.folder_vars[kind] = folder_var
+            ttk.Entry(parent, textvariable=folder_var, width=32).grid(
+                row=row, column=1, sticky="ew", padx=6, pady=4
+            )
+            ttk.Button(parent, text="Folder", command=lambda k=kind: self._choose_folder(k)).grid(
+                row=row, column=2, padx=4, pady=4
+            )
+            file_var = tk.StringVar()
+            self.file_vars[kind] = file_var
+            ttk.Entry(parent, textvariable=file_var, width=32, state="readonly").grid(
+                row=row, column=3, sticky="ew", padx=6, pady=4
+            )
+            ttk.Button(parent, text="Add Files", command=lambda k=kind: self._choose_files(k)).grid(
+                row=row, column=4, padx=4, pady=4
+            )
+            ttk.Button(parent, text="Clear", command=lambda k=kind: self._clear_files(k)).grid(
+                row=row, column=5, padx=(4, 10), pady=4
             )
         ttk.Button(parent, text="Scan Library", command=self._scan_library).grid(
             row=len(MediaKind) + 1, column=0, padx=10, pady=12, sticky="w"
         )
         self.library_summary = tk.Text(parent, height=12, wrap="word")
         self.library_summary.grid(
-            row=len(MediaKind) + 2, column=0, columnspan=3, sticky="nsew", padx=10, pady=10
+            row=len(MediaKind) + 2, column=0, columnspan=6, sticky="nsew", padx=10, pady=10
         )
+        parent.columnconfigure(1, weight=1)
+        parent.columnconfigure(3, weight=1)
         parent.rowconfigure(len(MediaKind) + 2, weight=1)
 
     def _build_generator_tab(self, parent: ttk.Frame) -> None:
@@ -153,6 +174,8 @@ class MainWindow(tk.Tk):
             LOGGER.warning("Could not load library metadata: %s", exc)
         for kind, folder in self.library_manager.folders.items():
             self.folder_vars[kind].set(str(folder))
+        for kind in MediaKind:
+            self._refresh_file_var(kind)
         self._refresh_library_summary()
 
     def _choose_folder(self, kind: MediaKind) -> None:
@@ -161,6 +184,43 @@ class MainWindow(tk.Tk):
             self.folder_vars[kind].set(folder)
             self.library_manager.set_folder(kind, Path(folder))
             self.library_manager.save()
+
+    def _choose_files(self, kind: MediaKind) -> None:
+        filenames = filedialog.askopenfilenames(
+            title=f"Add {kind.value} material files",
+            filetypes=self._filetypes_for_kind(kind),
+        )
+        if filenames:
+            self.library_manager.add_files(kind, [Path(filename) for filename in filenames])
+            self.library_manager.save()
+            self._refresh_file_var(kind)
+
+    def _clear_files(self, kind: MediaKind) -> None:
+        self.library_manager.clear_files(kind)
+        self.library_manager.save()
+        self._refresh_file_var(kind)
+
+    def _refresh_file_var(self, kind: MediaKind) -> None:
+        files = self.library_manager.files.get(kind, [])
+        if not files:
+            self.file_vars[kind].set("")
+            return
+        preview = "; ".join(path.name for path in files[:3])
+        if len(files) > 3:
+            preview = f"{preview}; +{len(files) - 3} more"
+        self.file_vars[kind].set(preview)
+
+    def _filetypes_for_kind(self, kind: MediaKind) -> list[tuple[str, str]]:
+        video = " ".join(f"*{ext}" for ext in sorted(self.library_manager.VIDEO_EXTENSIONS))
+        image = " ".join(f"*{ext}" for ext in sorted(self.library_manager.IMAGE_EXTENSIONS))
+        audio = " ".join(f"*{ext}" for ext in sorted(self.library_manager.AUDIO_EXTENSIONS))
+        if kind in {MediaKind.SOURCE_VIDEOS, MediaKind.MEME_CLIPS, MediaKind.TRANSITIONS}:
+            return [("Video files", video), ("All files", "*.*")]
+        if kind in {MediaKind.SOURCE_IMAGES, MediaKind.OVERLAYS, MediaKind.CHARACTERS}:
+            return [("Image/video files", f"{image} {video}"), ("All files", "*.*")]
+        if kind in {MediaKind.SOUND_EFFECTS, MediaKind.MUSIC}:
+            return [("Audio/video files", f"{audio} {video}"), ("All files", "*.*")]
+        return [("All files", "*.*")]
 
     def _choose_output(self) -> None:
         filename = filedialog.asksaveasfilename(
@@ -186,7 +246,12 @@ class MainWindow(tk.Tk):
     def _refresh_library_summary(self) -> None:
         self.library_summary.delete("1.0", tk.END)
         for kind in MediaKind:
-            self.library_summary.insert(tk.END, f"{kind.value}: {len(self.library_manager.get_items(kind))} items\n")
+            direct_files = len(self.library_manager.files.get(kind, []))
+            self.library_summary.insert(
+                tk.END,
+                f"{kind.value}: {len(self.library_manager.get_items(kind))} scanned items "
+                f"({direct_files} direct files selected)\n",
+            )
 
     def _generate_timeline(self) -> None:
         try:

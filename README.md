@@ -4,7 +4,7 @@ DumperYTPGen is a cross-platform Python 3.8+ Tkinter desktop application that au
 
 ## Features
 
-- Media library folders for source videos, images, sounds, music, meme clips, overlays, transitions, and characters.
+- Media library folders and multi-file material selection for source videos, images, sounds, music, meme clips, overlays, transitions, and characters.
 - FFprobe-powered video scanning and random clip generation.
 - Classic YTP effect chains including speed changes, reverse, stutter, zoom spam, shake, hue/saturation/contrast boosts, freeze frames, audio chopping, pitch shifting, and datamosh-style simulation.
 - Random overlays and sound injections.
@@ -24,6 +24,10 @@ DumperYTPGen is a cross-platform Python 3.8+ Tkinter desktop application that au
 ```bash
 python -m app.main
 ```
+
+## Material Multi-File Mode
+
+Each media category can use a folder, individual files, or both. In the Media Library tab, use **Folder** for recursive folder scanning and **Add Files** to append multiple selected material files for videos, images, sounds, music, meme clips, overlays, transitions, or characters. Direct file selections are saved in the library metadata JSON alongside scanned items.
 
 ## Notes
 
