@@ -1,0 +1,8 @@
+{
+  "output_format": "mp4_h264",
+  "resolution": "1280x720",
+  "fps": 30,
+  "old_school_mode": true,
+  "ear_rape_limiter_db": -1.5,
+  "hardware_accel": "auto"
+}

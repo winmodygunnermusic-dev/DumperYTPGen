@@ -1,0 +1,17 @@
+[project]
+name = "dumperytpgen"
+version = "0.1.0"
+description = "Tkinter desktop app for automatic classic YTP-style video generation using FFmpeg/FFprobe."
+requires-python = ">=3.8"
+authors = [{ name = "DumperYTPGen" }]
+readme = "README.md"
+
+[project.scripts]
+dumperytpgen = "app.main:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
